@@ -21,7 +21,7 @@ func main() {
 		Short: "Create zip archives",
 		Long:  "gozip creates zip archives, compatible with standard zip.",
 		Args:  cobra.MinimumNArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			zipPath := args[0]
 			files := args[1:]
 

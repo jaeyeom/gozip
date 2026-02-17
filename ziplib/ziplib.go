@@ -56,7 +56,7 @@ func addToZip(w *zip.Writer, path string, opts ZipOptions, out io.Writer) error 
 			fmt.Fprintf(out, "  adding: %s/ (skipped, not recursive)\n", path)
 			return nil
 		}
-		return filepath.Walk(path, func(p string, fi os.FileInfo, err error) error {
+		err := filepath.Walk(path, func(p string, fi os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
@@ -71,6 +71,10 @@ func addToZip(w *zip.Writer, path string, opts ZipOptions, out io.Writer) error 
 			}
 			return writeFileToZip(w, p, fi, opts, out)
 		})
+		if err != nil {
+			return fmt.Errorf("walk %s: %w", path, err)
+		}
+		return nil
 	}
 
 	if matchesAny(path, opts.ExcludePatterns) {
@@ -135,41 +139,48 @@ func Unzip(zipPath string, opts UnzipOptions) error {
 	defer r.Close()
 
 	for _, f := range r.File {
-		if len(opts.FilePatterns) > 0 && !matchesAny(f.Name, opts.FilePatterns) {
-			continue
-		}
-
-		name := f.Name
-		if opts.JunkPaths {
-			name = filepath.Base(name)
-		}
-
-		destPath := filepath.Join(outputDir, name)
-
-		// Zip-slip prevention.
-		absDest, err := filepath.Abs(destPath)
-		if err != nil {
-			return fmt.Errorf("resolve path: %w", err)
-		}
-		if !strings.HasPrefix(absDest, absOutputDir+string(os.PathSeparator)) && absDest != absOutputDir {
-			return fmt.Errorf("illegal file path: %s", f.Name)
-		}
-
-		if f.FileInfo().IsDir() {
-			if err := os.MkdirAll(destPath, f.Mode()); err != nil {
-				return fmt.Errorf("mkdir %s: %w", destPath, err)
-			}
-			continue
-		}
-
-		if err := extractFile(f, destPath, opts.Overwrite, out); err != nil {
+		if err := extractEntry(f, outputDir, absOutputDir, opts, out); err != nil {
 			return err
 		}
+	}
+	return nil
+}
 
-		// Restore modification time.
-		if err := os.Chtimes(destPath, f.Modified, f.Modified); err != nil {
-			return fmt.Errorf("chtimes %s: %w", destPath, err)
+func extractEntry(f *zip.File, outputDir, absOutputDir string, opts UnzipOptions, out io.Writer) error {
+	if len(opts.FilePatterns) > 0 && !matchesAny(f.Name, opts.FilePatterns) {
+		return nil
+	}
+
+	name := f.Name
+	if opts.JunkPaths {
+		name = filepath.Base(name)
+	}
+
+	destPath := filepath.Join(outputDir, name) //nolint:gosec // Zip-slip prevention follows.
+
+	// Zip-slip prevention.
+	absDest, err := filepath.Abs(destPath)
+	if err != nil {
+		return fmt.Errorf("resolve path: %w", err)
+	}
+	if !strings.HasPrefix(absDest, absOutputDir+string(os.PathSeparator)) && absDest != absOutputDir {
+		return fmt.Errorf("illegal file path: %s", f.Name)
+	}
+
+	if f.FileInfo().IsDir() {
+		if err := os.MkdirAll(destPath, f.Mode()); err != nil {
+			return fmt.Errorf("mkdir %s: %w", destPath, err)
 		}
+		return nil
+	}
+
+	if err := extractFile(f, destPath, opts.Overwrite, out); err != nil {
+		return err
+	}
+
+	// Restore modification time.
+	if err := os.Chtimes(destPath, f.Modified, f.Modified); err != nil {
+		return fmt.Errorf("chtimes %s: %w", destPath, err)
 	}
 	return nil
 }
@@ -197,7 +208,7 @@ func extractFile(f *zip.File, destPath string, overwrite bool, out io.Writer) er
 	}
 	defer w.Close()
 
-	if _, err := io.Copy(w, rc); err != nil {
+	if _, err := io.Copy(w, rc); err != nil { //nolint:gosec // Extraction tool; size is bounded by the archive.
 		return fmt.Errorf("extract %s: %w", f.Name, err)
 	}
 

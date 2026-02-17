@@ -30,7 +30,7 @@ func setupTestDir(t *testing.T) string {
 
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -82,7 +82,7 @@ func TestZipRecursive(t *testing.T) {
 	if err := os.Chdir(src); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(orig)
+	defer func() { _ = os.Chdir(orig) }()
 
 	var buf bytes.Buffer
 	err := Zip(zipPath, []string{"."}, ZipOptions{
@@ -150,7 +150,7 @@ func TestZipExcludePatterns(t *testing.T) {
 	if err := os.Chdir(src); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(orig)
+	defer func() { _ = os.Chdir(orig) }()
 
 	err := Zip(zipPath, []string{"."}, ZipOptions{
 		Recursive:       true,
@@ -247,7 +247,7 @@ func TestUnzipJunkPaths(t *testing.T) {
 	if err := os.Chdir(src); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(orig)
+	defer func() { _ = os.Chdir(orig) }()
 
 	err := Zip(zipPath, []string{"."}, ZipOptions{Recursive: true})
 	if err != nil {
@@ -278,7 +278,7 @@ func TestUnzipFilePatterns(t *testing.T) {
 	if err := os.Chdir(src); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(orig)
+	defer func() { _ = os.Chdir(orig) }()
 
 	err := Zip(zipPath, []string{"."}, ZipOptions{Recursive: true})
 	if err != nil {
@@ -315,7 +315,9 @@ func TestUnzipZipSlipPrevention(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fw.Write([]byte("evil"))
+	if _, err = fw.Write([]byte("evil")); err != nil {
+		t.Fatal(err)
+	}
 	w.Close()
 	f.Close()
 
@@ -339,7 +341,9 @@ func TestZipNonexistentFile(t *testing.T) {
 func TestUnzipInvalidArchive(t *testing.T) {
 	// Create a file that is not a zip.
 	badPath := filepath.Join(t.TempDir(), "notazip.zip")
-	os.WriteFile(badPath, []byte("this is not a zip"), 0o644)
+	if err := os.WriteFile(badPath, []byte("this is not a zip"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 
 	err := Unzip(badPath, UnzipOptions{})
 	if err == nil {
@@ -355,7 +359,7 @@ func TestListEntries(t *testing.T) {
 	if err := os.Chdir(src); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(orig)
+	defer func() { _ = os.Chdir(orig) }()
 
 	err := Zip(zipPath, []string{"."}, ZipOptions{Recursive: true})
 	if err != nil {

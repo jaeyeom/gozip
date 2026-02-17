@@ -22,7 +22,7 @@ func main() {
 		Short: "Extract zip archives",
 		Long:  "gounzip extracts zip archives, compatible with standard unzip.",
 		Args:  cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			zipPath := args[0]
 			filePatterns := args[1:]
 
@@ -56,7 +56,7 @@ func main() {
 func listArchive(zipPath string) error {
 	entries, err := ziplib.List(zipPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("listing archive: %w", err)
 	}
 
 	fmt.Printf("  Length      Date    Time    Name\n")

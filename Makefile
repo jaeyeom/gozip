@@ -29,9 +29,10 @@ check-format:
 # ── Lint / fix ────────────────────────────────────────────────────────
 
 lint:
-	@go vet ./...
+	@golangci-lint run ./...
 
 fix: format
+	@golangci-lint run --fix ./...
 
 # ── Test ──────────────────────────────────────────────────────────────
 
