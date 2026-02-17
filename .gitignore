@@ -1,0 +1,18 @@
+# Binaries
+bin/
+/gozip
+/gounzip
+*.exe
+
+# Test artifacts
+*.zip
+coverage.out
+coverage.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OMC
+.omc/
